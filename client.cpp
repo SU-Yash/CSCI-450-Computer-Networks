@@ -12,6 +12,10 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <iostream>
+#include <string>
+
+using namespace std;
 
 #define MAXDATASIZE 1000 // max number of bytes we can get at once 
 
@@ -71,22 +75,39 @@ int get_socket_fd(int *sockfd, char *port)
 	return 0;
 }
 
+char* strcon(string s){
+	char *cstr = new char[s.length() + 1];
+	strcpy(cstr, s.c_str());
+	return cstr;
+}
+
 int main(int argc, char *argv[])
 {
 	int sockfd, numbytes, error;  
 	char buf[MAXDATASIZE];
+
+	string country;
+	string userId;
+
+
+	cout << "Enter country name: ";
+	cin >> country;
+	cout << "Enter user ID: ";
+	cin >> userId;
+
+
+	// **** TCP connections is established ****
+	// **** Start conversing with the server ****
+
+	string message =  country + " " + userId;
 
 	// Get socket file descriptor for main-server
 	if ((error = get_socket_fd(&sockfd, "33255")) != 0) {
 		return error;
 	}
 
-	// **** TCP connections is established ****
-	// **** Start conversing with the server ****
-
-
 	// Send data
-	if (send(sockfd, "Canada", strlen("Canada"), 0) == -1)
+	if (send(sockfd, strcon(message), strlen(strcon(message)), 0) == -1)
 		perror("send");
 
 	// Receive data 

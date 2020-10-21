@@ -14,12 +14,27 @@
 #include <arpa/inet.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
+#include <set>
+#include <map>
+#include <vector> 
 
 #define BACKLOG 10	 // how many pending connections queue will hold
 
 #define MAXDATASIZE 100
 
 #define MAXBUFLEN 100
+
+using namespace std;
+
+char* strcon(string s){
+	char *cstr = new char[s.length() + 1];
+	strcpy(cstr, s.c_str());
+	return cstr;
+}
 
 void sigchld_handler(int s)
 {
@@ -44,7 +59,7 @@ void *get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-int get_socket_fd(int * sockfd, char * port){
+int get_socket_fd(int * sockfd, string port){
 	struct addrinfo hints, *servinfo, *p;
 	int rv, yes=1;
 	struct sigaction sa;
@@ -54,7 +69,7 @@ int get_socket_fd(int * sockfd, char * port){
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE; // use my IP
 
-	if ((rv = getaddrinfo(NULL, port, &hints, &servinfo)) != 0) {
+	if ((rv = getaddrinfo(NULL, strcon(port), &hints, &servinfo)) != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
 		return 1;
 	}
@@ -108,24 +123,24 @@ int get_socket_fd(int * sockfd, char * port){
 
 }
 
-int get_socket_fd_talker(int * sockfd, char * port, struct addrinfo **p){
+int udp_talk_to(string port, string message){
 
-	struct addrinfo hints, *servinfo;
-	int rv;
+	struct addrinfo hints, *servinfo, *p;
+	int rv, numbytes, sockfd;
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_DGRAM;
 
-	if ((rv = getaddrinfo("localhost", port, &hints, &servinfo)) != 0) {
+	if ((rv = getaddrinfo("localhost", strcon(port), &hints, &servinfo)) != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
 		return 1;
 	}
 
 	// loop through all the results and make a socket
-	for(*p = servinfo; *p != NULL; *p = (*p)->ai_next) {
-		if ((*sockfd = socket((*p)->ai_family, (*p)->ai_socktype,
-				(*p)->ai_protocol)) == -1) {
+	for(p = servinfo; p != NULL; p = p->ai_next) {
+		if ((sockfd = socket(p->ai_family, p->ai_socktype,
+				p->ai_protocol)) == -1) {
 			perror("talker: socket");
 			continue;
 		}
@@ -133,39 +148,50 @@ int get_socket_fd_talker(int * sockfd, char * port, struct addrinfo **p){
 		break;
 	}
 
-	if (*p == NULL) {
+	if (p == NULL) {
 		fprintf(stderr, "talker: failed to create socket\n");
 		return 2;
 	}
 
+	if ((numbytes = sendto(sockfd, strcon(message), strlen(strcon(message)), 0,
+			p->ai_addr, p->ai_addrlen)) == -1) {
+			perror("talker: sendto");
+			exit(1);
+	}
+
+	printf("talker: sent %d bytes to 30255\n", numbytes);
+	close(sockfd);
 
 	return 0;
 }
 
-int get_socket_fd_listener(int * sockfd, char * port){
+int udp_listen_on(string port, char (&buf)[MAXBUFLEN]){
 	struct addrinfo hints, *servinfo, *p;
-	int rv;
+	int rv, sockfd, numbytes;
+	char s[INET6_ADDRSTRLEN];
+	struct sockaddr_storage their_addr;
+	socklen_t addr_len;
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC; // set to AF_INET to force IPv4
 	hints.ai_socktype = SOCK_DGRAM;
 	hints.ai_flags = AI_PASSIVE; // use my IP
 
-	if ((rv = getaddrinfo(NULL, port, &hints, &servinfo)) != 0) {
+	if ((rv = getaddrinfo(NULL, strcon(port), &hints, &servinfo)) != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
 		return 1;
 	}
 
 	// loop through all the results and bind to the first we can
 	for(p = servinfo; p != NULL; p = p->ai_next) {
-		if ((*sockfd = socket(p->ai_family, p->ai_socktype,
+		if ((sockfd = socket(p->ai_family, p->ai_socktype,
 				p->ai_protocol)) == -1) {
 			perror("listener: socket");
 			continue;
 		}
 
-		if (bind(*sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-			close(*sockfd);
+		if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+			close(sockfd);
 			perror("listener: bind");
 			continue;
 		}
@@ -180,47 +206,103 @@ int get_socket_fd_listener(int * sockfd, char * port){
 
 	freeaddrinfo(servinfo);
 
-	printf("listener: waiting to recvfrom...: %s\n", port);
-
-	return 0;
-}
-
-
-char* receiveFrom(int sockfd, sockaddr_storage * their_addr, socklen_t addr_len){
-	int numbytes;
-	char s[INET6_ADDRSTRLEN], buf[MAXBUFLEN];
+	cout << "listener: waiting to recvfrom... " <<  port;
 
 	if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0,
-		(struct sockaddr *)their_addr, &addr_len)) == -1) {
+		(struct sockaddr *)&their_addr, &addr_len)) == -1) {
 		perror("recvfrom");
 		exit(1);
 	}
 
 	printf("listener: got packet from %s\n",
-		inet_ntop(their_addr->ss_family,
-			get_in_addr((struct sockaddr *)their_addr),
+		inet_ntop(their_addr.ss_family,
+			get_in_addr((struct sockaddr *)&their_addr),
 			s, sizeof s));
 
 	printf("listener: packet is %d bytes long\n", numbytes);
 	buf[numbytes] = '\0';
-	printf("listener: packet contains \"%s\"\n", buf);	
+	printf("listener: packet contains \"%s\"\n", buf);
+	close(sockfd);
+	return 0;
+}
 
-	return buf;
+void deserialize(string line, map<string, string> &forward, string port){
+	istringstream stream(line);
+	string s;
+	vector<string> line_vec;
+
+	while(stream >> s){
+		line_vec.push_back(s);
+	}
+
+	for(int i = 0; i < line_vec.size(); i++){
+		forward.insert(make_pair(line_vec[i], port));
+	}
+}
+
+void deserialize_client(string line, string &country, int &uid){
+
+	istringstream stream(line);
+	string s;
+	vector<string> line_vec;
+
+
+	while(stream >> s){
+		line_vec.push_back(s);
+	}
+
+	country = line_vec[0];
+	stringstream convert(line_vec[1]);
+	convert >> uid;
+
+	cout<< "Desearlised: " << country << ", " << uid << endl; 
 }
 
 int main(void)
 {
-	int sockfd, new_fd, numbytes, error;  // listen on sock_fd, new connection on new_fd
-	struct sockaddr_storage their_addr; // connector's address information
-	socklen_t sin_size;
+	// Contact backend servers and get data related to countries
+	string port1 = "30255", port2 = "32255", port3 = "31255",  port4 = "33255", signal="requestData";
 	char buf[MAXDATASIZE], s[INET6_ADDRSTRLEN];
+	int sockfd, new_fd, numbytes, error;
+	struct sockaddr_storage their_addr; 
+	map<string, string> forward;
+	socklen_t sin_size;
 
-	// Get socket file descriptor for endpoint facing client
-	if ((error = get_socket_fd(&sockfd, "33255")) != 0) {
+	cout << "Talking to A:" << endl;
+
+	// Talker - serverA
+	if ((error = udp_talk_to(port1, signal)) != 0) {
 		return error;
 	}
 
-	while(1) {  // main accept() loop
+	// Listener - serverA
+	if ((error = udp_listen_on(port2, buf)) != 0) {
+		return error;
+	}
+
+	deserialize(buf, forward, port1);
+
+	cout << "Talking to B:" << endl;
+
+	// Talker - serverB
+	if ((error = udp_talk_to(port3, signal)) != 0) {
+		return error;
+	}
+
+	// Listener - serverB
+	if ((error = udp_listen_on(port2, buf)) != 0) {
+		return error;
+	}
+
+	deserialize(buf, forward, port3);
+
+
+	// Get socket file descriptor for endpoint facing client
+	if ((error = get_socket_fd(&sockfd, port4)) != 0) {
+		return error;
+	}
+
+	while(1) { 
 		sin_size = sizeof their_addr;
 		
 		new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
@@ -241,83 +323,45 @@ int main(void)
 			// **** Start conversing with the client ****
 			
 			
-			// Receive data from client
+			// Receive from client
 			if ((numbytes = recv(new_fd, buf, MAXDATASIZE-1, 0)) == -1) {
 	    		perror("recv");
 	    		exit(1);
 			}
-
-
 			printf("server: received : %s from client\n \n", buf);
 
+			string country, port;
+			int uid;
+
+			deserialize_client(buf, country, uid);
+
+			if(forward.find(country) == forward.end()){
+				cout << "Country not found" << endl;
+			}
+
+			port = forward.find(country)->second;
 
 			// Talker
-
-			int sockfd_t;
-			struct addrinfo * p_t;
-
-			if ((error = get_socket_fd_talker(&sockfd_t, "30255", &p_t)) != 0) {
+			if ((error = udp_talk_to(port, buf)) != 0) {
 				return error;
 			}
-
-			if ((numbytes = sendto(sockfd_t, buf, strlen(buf), 0,
-					 p_t->ai_addr, p_t->ai_addrlen)) == -1) {
-				perror("talker: sendto");
-				exit(1);
-			}
-
-			printf("talker: sent %d bytes to 30255\n", numbytes);
-			close(sockfd_t);
-
-
 
 			// Listener
-
-			char buf_l[MAXBUFLEN];
-
-			int sockfd_l, error;
-			struct sockaddr_storage their_addr_l;
-			socklen_t addr_len;
-
-			// Get socket file descriptor for port we are listening on
-			if ((error = get_socket_fd_listener(&sockfd_l, "32255")) != 0) {
+			if ((error = udp_listen_on(port2, buf)) != 0) {
 				return error;
 			}
 
-			//receiveFrom(sockfd_l, &their_addr_l, sizeof their_addr_l);
-
-			char s[INET6_ADDRSTRLEN];
-
-			addr_len = sizeof their_addr_l;
-
-			if ((numbytes = recvfrom(sockfd_l, buf_l, MAXBUFLEN-1 , 0,
-				(struct sockaddr *)&their_addr_l, &addr_len)) == -1) {
-				perror("recvfrom");
-				exit(1);
-			}
-
-			printf("listener: got packet from %s\n",
-				inet_ntop(their_addr_l.ss_family,
-					get_in_addr((struct sockaddr *)&their_addr_l),
-					s, sizeof s));
-
-			printf("listener: packet is %d bytes long\n", numbytes);
-			buf_l[numbytes] = '\0';
-			printf("listener: packet contains \"%s\"\n", buf_l);	
-
-			close(sockfd_l);
-
-			// Send data to client
-			if (send(new_fd, buf_l, sizeof buf_l , 0) == -1)
+			// Send to client
+			if (send(new_fd, buf, sizeof buf , 0) == -1)
 				perror("send");
 
 
-			
 			// **** End conversing with the client ****
 
 			close(new_fd);
 			exit(0);
 		}
+
 		close(new_fd);  // parent doesn't need this
 	}
 
