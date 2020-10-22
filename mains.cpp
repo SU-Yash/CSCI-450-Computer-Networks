@@ -261,7 +261,7 @@ void deserialize_client(string line, string &country, int &uid){
 int main(void)
 {
 	// Contact backend servers and get data related to countries
-	string port1 = "30255", port2 = "32255", port3 = "31255",  port4 = "33255", signal="requestData";
+	string port1 = "30255", port2 = "32255", port3 = "31255",  port4 = "33255", signal="RD";
 	char buf[MAXDATASIZE], s[INET6_ADDRSTRLEN];
 	int sockfd, new_fd, numbytes, error;
 	struct sockaddr_storage their_addr; 
