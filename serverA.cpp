@@ -93,6 +93,8 @@ int udp_listen_on(string port, char (&buf)[MAXBUFLEN]){
 		exit(1);
 	}
 
+	buf[numbytes] = '\0';
+
 	/*
 
 	printf("listener: got packet from %s\n",
@@ -100,7 +102,6 @@ int udp_listen_on(string port, char (&buf)[MAXBUFLEN]){
 			get_in_addr((struct sockaddr *)&their_addr),
 			s, sizeof s));
 	printf("listener: packet is %d bytes long\n", numbytes);
-	buf[numbytes] = '\0';
 	printf("listener: packet contains \"%s\"\n", buf);
 
 	*/
@@ -269,7 +270,7 @@ void deserialize(string line, string &country, int &uid){
 	stringstream convert(line_vec[1]);
 	convert >> uid;
 
-	cout << "The server A has received request for finding possible friends of User " << uid << " in " << country << endl;
+	cout << "The server A has received request for finding possible friends of User " << uid << " in " << country << endl << endl;
 
 }
 
@@ -359,7 +360,7 @@ int main(void)
 
 	while(1){
 
-		cout << "The server A is up and running using UDP on port " << port1 << endl;
+		cout << "The server A is up and running using UDP on port " << port1 << endl << endl;
 
 		if ((error = udp_listen_on(port1, buf)) != 0) {
 			return error;
@@ -373,7 +374,7 @@ int main(void)
 			if ((error = udp_talk_on(port2, cstr)) != 0) {
 				return error;
 			}
-			cout << "The server A has sent a country list to Main Server" << endl;
+			cout << "The server A has sent a country list to Main Server" << endl << endl;
 			break;
 		}
 		else{
@@ -413,7 +414,7 @@ int main(void)
             cstr = new char[temp.length() + 1];
             strcpy(cstr, temp.c_str());
 			cout << uid << " is already connected to all other users, no new recommendation" << endl; 
-			cout << "The server A has sent 'User " << uid << " connected to all other users, no new recommendation' to Main Server" << endl;
+			cout << "The server A has sent 'User " << uid << " connected to all other users, no new recommendation' to Main Server" << endl << endl;
 
         }
 		else if (suggestion == -2){
@@ -424,7 +425,7 @@ int main(void)
             cstr = new char[temp.length() + 1];
             strcpy(cstr, temp.c_str());
 			cout << "User " << uid << " does not show up in " << country << endl;
-			cout << "The server A has sent 'User " << uid << " not found' to Main Server" << endl;
+			cout << "The server A has sent 'User " << uid << " not found' to Main Server" << endl << endl;
 		}
 		else{
 			ostringstream oss;
@@ -434,7 +435,7 @@ int main(void)
 			strcpy(cstr, temp.c_str());
 			cout << "The server A is searching possible friends for User " << uid << "..." << endl;
 			cout << "Here are the results: " << suggestion << endl;
-			cout << "The server A has sent the results to Main Server " << endl; 
+			cout << "The server A has sent the results to Main Server " << endl << endl; 
 		}
 
 

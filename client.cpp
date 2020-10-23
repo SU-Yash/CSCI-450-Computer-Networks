@@ -89,40 +89,42 @@ int main(int argc, char *argv[])
 	string country;
 	string userId;
 
+	while(1) {
 
-	cout << "Enter country name: ";
-	cin >> country;
-	cout << "Enter user ID: ";
-	cin >> userId;
+		cout << "Enter country name: ";
+		cin >> country;
+		cout << "Enter user ID: ";
+		cin >> userId;
 
 
-	// **** TCP connections is established ****
-	// **** Start conversing with the server ****
+		// **** TCP connections is established ****
+		// **** Start conversing with the server ****
 
-	string message =  country + " " + userId;
+		string message =  country + " " + userId;
 
-	// Get socket file descriptor for main-server
-	if ((error = get_socket_fd(&sockfd, "33255")) != 0) {
-		return error;
+		// Get socket file descriptor for main-server
+		if ((error = get_socket_fd(&sockfd, "33255")) != 0) {
+			return error;
+		}
+
+		// Send data
+		if (send(sockfd, strcon(message), strlen(strcon(message)), 0) == -1)
+			perror("send");
+
+		// Receive data 
+		if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
+			perror("recv");
+			exit(1);
+		}
+
+
+		// **** End conversing with the server ****
+
+		buf[numbytes] = '\0';
+		printf("client: received '%s'\n",buf);
+		close(sockfd);
+
 	}
-
-	// Send data
-	if (send(sockfd, strcon(message), strlen(strcon(message)), 0) == -1)
-		perror("send");
-
-	// Receive data 
-	if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
-	    perror("recv");
-	    exit(1);
-	}
-
-
-	// **** End conversing with the server ****
-
-	buf[numbytes] = '\0';
-	printf("client: received '%s'\n",buf);
-
-	close(sockfd);
 
 	return 0;
 }

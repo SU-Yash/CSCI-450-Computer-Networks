@@ -117,7 +117,7 @@ int get_socket_fd(int * sockfd, string port){
 		exit(1);
 	}
 
-	printf("server: waiting for connections...\n");
+	//printf("server: waiting for connections...\n");
 
 	return 0;
 
@@ -159,7 +159,7 @@ int udp_talk_to(string port, string message){
 			exit(1);
 	}
 
-	printf("talker: sent %d bytes to 30255\n", numbytes);
+	//printf("talker: sent %d bytes to 30255\n", numbytes);
 	close(sockfd);
 
 	return 0;
@@ -206,7 +206,7 @@ int udp_listen_on(string port, char (&buf)[MAXBUFLEN]){
 
 	freeaddrinfo(servinfo);
 
-	cout << "listener: waiting to recvfrom... " <<  port;
+	//cout << "listener: waiting to recvfrom... " <<  port;
 
 	if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0,
 		(struct sockaddr *)&their_addr, &addr_len)) == -1) {
@@ -214,14 +214,15 @@ int udp_listen_on(string port, char (&buf)[MAXBUFLEN]){
 		exit(1);
 	}
 
-	printf("listener: got packet from %s\n",
+	buf[numbytes] = '\0';
+
+	/*printf("listener: got packet from %s\n",
 		inet_ntop(their_addr.ss_family,
 			get_in_addr((struct sockaddr *)&their_addr),
 			s, sizeof s));
 
-	printf("listener: packet is %d bytes long\n", numbytes);
-	buf[numbytes] = '\0';
-	printf("listener: packet contains \"%s\"\n", buf);
+	printf("listener: packet is %d bytes long\n", numbytes);*/
+	//printf("listener: packet contains \"%s\"\n", buf);
 	close(sockfd);
 	return 0;
 }
@@ -255,7 +256,41 @@ void deserialize_client(string line, string &country, int &uid){
 	stringstream convert(line_vec[1]);
 	convert >> uid;
 
-	cout<< "Desearlised: " << country << ", " << uid << endl; 
+	//cout<< "Desearlised: " << country << ", " << uid << endl; 
+}
+
+void print_forwarding_table(map<string, string> forward){
+	vector<string> A, B;
+	
+	for(map<string, string>::const_iterator it = forward.begin();
+	    	it != forward.end(); ++it){
+				if(it->second == "30255"){
+					A.push_back(it->first);
+				}
+				else{
+					B.push_back(it->first);
+				}
+	}
+	cout << "Server A | Server B" << endl;
+	
+	vector<string>::iterator it1 = A.begin();
+	vector<string>::iterator it2 = B.begin();
+
+	while(it1 != A.end() || it2 != B.end()){
+		if(it1 != A.end()){
+			cout << *it1;
+			it1++;
+		}
+
+		cout << " | ";
+
+		if(it2 != B.end()){
+			cout << *it2;
+			it2++;
+		}
+		cout << endl;
+	}
+	cout << endl;
 }
 
 int main(void)
@@ -268,7 +303,7 @@ int main(void)
 	map<string, string> forward;
 	socklen_t sin_size;
 
-	cout << "Talking to A:" << endl;
+	cout << "The Main Server is up and running " << endl << endl; 
 
 	// Talker - serverA
 	if ((error = udp_talk_to(port1, signal)) != 0) {
@@ -280,9 +315,9 @@ int main(void)
 		return error;
 	}
 
-	deserialize(buf, forward, port1);
+	cout << "The Main Server has received the country list from server A using UDP over port " << port2 << endl << endl; 
 
-	cout << "Talking to B:" << endl;
+	deserialize(buf, forward, port1);
 
 	// Talker - serverB
 	if ((error = udp_talk_to(port3, signal)) != 0) {
@@ -294,7 +329,12 @@ int main(void)
 		return error;
 	}
 
+	cout << "The Main Server has received the country list from server B using UDP over port " << port2 << endl << endl; 
+
 	deserialize(buf, forward, port3);
+
+
+	print_forwarding_table(forward);
 
 
 	// Get socket file descriptor for endpoint facing client
@@ -311,10 +351,10 @@ int main(void)
 			continue;
 		}
 
-		inet_ntop(their_addr.ss_family,
+		/*inet_ntop(their_addr.ss_family,
 			get_in_addr((struct sockaddr *)&their_addr),
 			s, sizeof s);
-		printf("server: got connection from %s\n", s);
+		printf("server: got connection from %s\n", s);*/
 
 		if (!fork()) { // this is the child process
 			
@@ -328,33 +368,56 @@ int main(void)
 	    		perror("recv");
 	    		exit(1);
 			}
-			printf("server: received : %s from client\n \n", buf);
+			//printf("server: received : %s from client\n \n", buf);
 
-			string country, port;
+			string country, port, server;
 			int uid;
 
 			deserialize_client(buf, country, uid);
 
 			if(forward.find(country) == forward.end()){
-				cout << "Country not found" << endl;
+				cout << country << "does not show up in server A&B " << endl;
+				cout << "The Main Server has sent '" << country << " : Not found' to client # using TCP over port " << port4 << endl << endl;
+				const string temp = country + "does not show up in server A&B ";
+           	 	strcpy(buf, temp.c_str());
 			}
 
-			port = forward.find(country)->second;
+			else{
+				port = forward.find(country)->second;
 
-			// Talker
-			if ((error = udp_talk_to(port, buf)) != 0) {
-				return error;
+				cout << "The Main Server has received the request on User " << uid << " in " << country << " from client # using TCP over port " << port4 << endl;
+				
+				if(port == port1){
+					server = "A";
+				}
+				else{
+					server = "B";
+				}
+
+				cout << country << " shows up in server" << server << endl;
+				
+				// Talker
+				if ((error = udp_talk_to(port, buf)) != 0) {
+					return error;
+				}
+
+				cout << "The Main Server has sent request from User " << uid << " to server" << server << " using UDP over port " << port << endl;
+
+				// Listener
+				if ((error = udp_listen_on(port2, buf)) != 0) {
+					return error;
+				}
 			}
 
-			// Listener
-			if ((error = udp_listen_on(port2, buf)) != 0) {
-				return error;
-			}
+			// ** Check if user not found **
+
+			cout << "The Main Server has received searching results of User " << uid << " from server" << server << endl;
 
 			// Send to client
 			if (send(new_fd, buf, sizeof buf , 0) == -1)
 				perror("send");
 
+			cout << "The Main Server has sent searching result to client using TCP over port " << port4 << endl;
 
 			// **** End conversing with the client ****
 
