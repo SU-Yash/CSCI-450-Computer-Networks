@@ -125,7 +125,7 @@ int get_socket_fd(int * sockfd, string port){
 
 int udp_talk_to(string port, string message){
 
-	struct addrinfo hints, *servinfo, *p;
+	struct addrinfo hints, *servinfo, *p, *servinfo2, *p2;
 	int rv, numbytes, sockfd;
 
 	memset(&hints, 0, sizeof hints);
@@ -148,10 +148,36 @@ int udp_talk_to(string port, string message){
 		break;
 	}
 
+    if ((rv = getaddrinfo("localhost", strcon("32255"), &hints, &servinfo2)) != 0) {
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+		return 1;
+	}
+
+	// loop through all the results and make a socket
+	for(p2 = servinfo2; p2 != NULL; p2 = p2->ai_next) {
+		if ((sockfd = socket(p2->ai_family, p2->ai_socktype,
+				p2->ai_protocol)) == -1) {
+			perror("talker: socket");
+			continue;
+		}
+
+        if (bind(sockfd, p2->ai_addr, p2->ai_addrlen) == -1) {
+			close(sockfd);
+			perror("listener: bind");
+			continue;
+		}
+
+		break;
+	}
+
 	if (p == NULL) {
 		fprintf(stderr, "talker: failed to create socket\n");
 		return 2;
 	}
+
+    cout << "sending on port: " << ntohs(((struct sockaddr_in*)p2->ai_addr)->sin_port) << endl;
+
+    cout << "port: " << port << " socfd: " << sockfd << endl;
 
 	if ((numbytes = sendto(sockfd, strcon(message), strlen(strcon(message)), 0,
 			p->ai_addr, p->ai_addrlen)) == -1) {

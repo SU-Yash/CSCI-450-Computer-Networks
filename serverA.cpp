@@ -95,16 +95,14 @@ int udp_listen_on(string port, char (&buf)[MAXBUFLEN]){
 
 	buf[numbytes] = '\0';
 
-	/*
+	
 
-	printf("listener: got packet from %s\n",
+	printf("listener: got packet from %s : %d, contains: %s\n",
 		inet_ntop(their_addr.ss_family,
 			get_in_addr((struct sockaddr *)&their_addr),
-			s, sizeof s));
-	printf("listener: packet is %d bytes long\n", numbytes);
-	printf("listener: packet contains \"%s\"\n", buf);
+			s, sizeof s), ntohs(((struct sockaddr_in*)(struct sockaddr *)&their_addr)->sin_port), buf);
 
-	*/
+	
 
 	close(sockfd);
 
