@@ -277,63 +277,86 @@ void deserialize(string line, string &country, int &uid){
 int execute_query(string c, int uid, map<string, map<int, set<int> > > & graph, 
 	map<string, set<int> > & all_connected, int & suggestion){
 	
-	//cout << "Executing query" << endl;
+	if(all_connected.find(c)->second.find(uid) != all_connected.find(c)->second.end()){
+        // early exit: uid is already connected to all other users in the country 
+        cout << "early exit: uid is already connected to all other users in the country " << endl;
+		return -1;
+	}
 
     map<string, map<int, set<int> > >::const_iterator pos = graph.find(c);
-	
-	if(pos == graph.end()){
-		// Country not found
-		cout << "country not found" << endl;
-		return -3;
-	}
-	else{
-		// early exit (all-connected?)
-		if(all_connected.find(c)->second.find(uid) != all_connected.find(c)->second.end()){
-			return -1;
-		}
+	map<int, set<int> > map_int = pos->second;
+	map<int, set<int> >::const_iterator p = map_int.find(uid);
 
-
-		map<int, set<int> > map_int = pos->second;
-		map<int, set<int> >::const_iterator p = map_int.find(uid);
-
-		if(p == map_int.end()){
-			// User not found
-			return -2;
-		}	
-		else{
+	if(p == map_int.end()){
+		// early exit: uid not found
+        cout << "early exit: uid not found" << endl;
+		return -2;
+	}	
 			
-			set<int> set_int = p->second;
-			int max = 0;
-			int max_node = -1;
+	set<int> set_int = p->second;
+	int max = 0, max_node = -1;
 
-			for(map<int, set<int> >::const_iterator it2 = map_int.begin();
+	if(set_int.size() == 0) { 
+        // early exit: uid not connected to any other user in the country, so return node with highest degree
+	    for(map<int, set<int> >::const_iterator it2 = map_int.begin();
 	    	it2 != map_int.end(); ++it2){
-	    		
-				if(uid != it2->first && set_int.find(it2->first) == set_int.end()){
+			if(uid != it2->first){
+				if(it2->second.size() > max){
+					max = it2->second.size();
+					max_node = it2->first;
+				}
+				else if(it2->second.size() == max){
+                    if(max_node == -1){
+                        max =  it2->second.size();
+						max_node = it2->first;
+                    }
 
-		    		int count = 0;
-
-		    		for (set<int>::iterator it3=(it2->second).begin(); it3 != (it2->second).end(); ++it3) {
-
-	        			if(set_int.find(*it3) != set_int.end()){
-	        				count++;
-	        				if(count > max){
-	        					max = count;
-	        					max_node = it2->first;
-	        				}
-	        			}
-		    		}
-	    		}
-        		
+					if(it2->first < map_int.find(max_node)->first){
+						max =  it2->second.size();
+						max_node = it2->first;
+                        cout << "Reached here!!";
+					}
+				}
 			}
-			//cout << "Max: " << max << " , Max Node: " << max_node << endl;
-			suggestion = max_node;
 		}
-
+        cout << "early exit: uid not connected to any other user in the country, so return node with highest degree" << endl;
+        suggestion = max_node;
+	    return 0;
 	}
 
+	for(map<int, set<int> >::const_iterator it2 = map_int.begin();
+	    it2 != map_int.end(); ++it2){
+	    // finding user with highest common neighbours for uid	
+		
+        if(uid != it2->first && set_int.find(it2->first) == set_int.end()){ 
+            // skip sets for uid and all current friends of uid
+		    int count = 0;
+
+		    for (set<int>::iterator it3=(it2->second).begin(); it3 != (it2->second).end(); ++it3) {
+
+	        	if(set_int.find(*it3) != set_int.end()){
+	        		count++;
+					if(count == max){ 
+                        // Tie Breaker for n common neighbours / smaller ID wins
+						if(it2->first < max_node){ 
+							max = count;
+							max_node = it2->first;
+						}
+					}
+	        		else if(count > max){
+	        			max = count;
+	        			max_node = it2->first;
+	        		}
+	        	}
+		    }
+	    } 		
+	}
+	cout << "Max: " << max << " , Max Node: " << max_node << endl;
+	suggestion = max_node;
+    cout << "" << endl;
 	return 0;
 }
+
 
 int main(void)
 {
@@ -369,7 +392,7 @@ int main(void)
 		if(strcmp(buf, "RD") == 0){
 			//cout << "Received request from mainserver for data" << endl; 
 
-			usleep(3000000);
+			usleep(1000000);
 
 			if ((error = udp_talk_on(port2, cstr)) != 0) {
 				return error;
@@ -387,8 +410,6 @@ int main(void)
 	// Start listening and answering user queries
 	while(1){
 
-		//cout << "Serving Queries now: " << endl;
-
 		string country;
 		int uid;
 
@@ -404,9 +425,9 @@ int main(void)
 		int suggestion = -1;
 		char * cstr;
 
-		execute_query(country, uid, graph, all_connected, suggestion);
+		error = execute_query(country, uid, graph, all_connected, suggestion);
 		
-		if(suggestion == -1){
+		if(error == -1){
             stringstream ss;
             ss << uid;
             string str = ss.str();
@@ -417,7 +438,7 @@ int main(void)
 			cout << "The server A has sent 'User " << uid << " connected to all other users, no new recommendation' to Main Server" << endl << endl;
 
         }
-		else if (suggestion == -2){
+		else if (error == -2){
             stringstream ss;
             ss << uid;
             string str = ss.str();

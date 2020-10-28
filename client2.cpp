@@ -29,6 +29,12 @@ void *get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
+char* strcon(string s){
+	char *cstr = new char[s.length() + 1];
+	strcpy(cstr, s.c_str());
+	return cstr;
+}
+
 int get_socket_fd(int *sockfd, char *port)
 {
 	int rv;
@@ -75,12 +81,6 @@ int get_socket_fd(int *sockfd, char *port)
 	return 0;
 }
 
-char* strcon(string s){
-	char *cstr = new char[s.length() + 1];
-	strcpy(cstr, s.c_str());
-	return cstr;
-}
-
 int main(int argc, char *argv[])
 {
 	int sockfd, numbytes, error;  
@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 	string country;
 	string userId;
 
-	cout << "Client is up and running" << endl << endl;
+	cout << "Client2 is up and running" << endl << endl;
 
 	while(1) {
 
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 		if (send(sockfd, strcon(message), strlen(strcon(message)), 0) == -1)
 			perror("send");
 
-		cout << "Client has sent User " << userId << " and " << country << " to Main Server using TCP" << endl << endl;
+		cout << "Client2 has sent User " << userId << " and " << country << " to Main Server using TCP" << endl << endl;
 
 		// Receive data 
 		if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
 
 		// *** country / userId not found
 
-		cout << "Client has received results from Main Server: " << buf << " is possible friend of " << userId << " in " << country << endl << endl;
+		cout << "Client2 has received results from Main Server: " << buf << " is possible friend of " << userId << " in " << country << endl << endl;
 
 
 		//printf("client: received '%s'\n",buf);
