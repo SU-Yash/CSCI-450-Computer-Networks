@@ -289,35 +289,7 @@ int execute_query(string c, int uid, map<string, map<int, set<int> > > & graph,
 	}	
 			
 	set<int> set_int = p->second;
-	int max = 0, max_node = -1;
-
-	if(set_int.size() == 0) { 
-        // early exit: uid not connected to any other user in the country, so return node with highest degree
-	    for(map<int, set<int> >::const_iterator it2 = map_int.begin();
-	    	it2 != map_int.end(); ++it2){
-			if(uid != it2->first){
-				if(it2->second.size() > max){
-					max = it2->second.size();
-					max_node = it2->first;
-				}
-				else if(it2->second.size() == max){
-                    if(max_node == -1){
-                        max =  it2->second.size();
-						max_node = it2->first;
-                    }
-
-					if(it2->first < map_int.find(max_node)->first){
-						max =  it2->second.size();
-						max_node = it2->first;
-                        cout << "Reached here!!";
-					}
-				}
-			}
-		}
-        cout << "early exit: uid not connected to any other user in the country, so return node with highest degree" << endl;
-        suggestion = max_node;
-	    return 0;
-	}
+	int max = 0, max_node = 2147483647;
 
 	for(map<int, set<int> >::const_iterator it2 = map_int.begin();
 	    it2 != map_int.end(); ++it2){
@@ -328,24 +300,52 @@ int execute_query(string c, int uid, map<string, map<int, set<int> > > & graph,
 		    int count = 0;
 
 		    for (set<int>::iterator it3=(it2->second).begin(); it3 != (it2->second).end(); ++it3) {
-
 	        	if(set_int.find(*it3) != set_int.end()){
 	        		count++;
-					if(count == max){ 
-                        // Tie Breaker for n common neighbours / smaller ID wins
-						if(it2->first < max_node){ 
-							max = count;
-							max_node = it2->first;
-						}
-					}
-	        		else if(count > max){
-	        			max = count;
-	        			max_node = it2->first;
-	        		}
 	        	}
 		    }
+
+			if(count == max){ 
+            	// Tie Breaker for n common neighbours / smaller ID wins
+				if(it2->first < max_node){ 
+					max = count;
+					max_node = it2->first;
+				}
+			}
+
+	        else if(count > max){
+	        	max = count;
+	        	max_node = it2->first;
+	        }
 	    } 		
 	}
+
+	if(set_int.size() == 0 || max == 0) { 
+        // uid not connected to any other user in the country, so return node with highest degree
+	    for(map<int, set<int> >::const_iterator it2 = map_int.begin();
+	    	it2 != map_int.end(); ++it2){
+			if(uid != it2->first && set_int.find(it2->first) == set_int.end()){
+				// only use nodes which are not connected to uid and skip uid itself
+				if(it2->second.size() > max){
+					max = it2->second.size();
+					max_node = it2->first;
+				}
+				else if(it2->second.size() == max){
+                    if(max_node == 2147483647){
+                        max =  it2->second.size();
+						max_node = it2->first;
+                    }
+
+					if(it2->first < map_int.find(max_node)->first){
+						max =  it2->second.size();
+						max_node = it2->first; 
+					}
+				}
+			}
+		}
+        cout << "uid not connected to any other user in the country, so return node with highest degree" << endl;
+	}
+
 	cout << "Max: " << max << " , Max Node: " << max_node << endl;
 	suggestion = max_node;
     cout << "" << endl;
