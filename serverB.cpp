@@ -1,7 +1,4 @@
 // This is serverB
-/*
-** listener.c -- a datagram sockets "server" demo
-*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +22,10 @@
 using namespace std;
 
 #define MAXBUFLEN 100
+
+#define SERVER_B_PORT "31255"
+
+#define MAIN_SERVER_PORT "32255"
 
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa)
@@ -331,12 +332,7 @@ int execute_query(string c, int uid, map<string, map<int, set<int> > > & graph,
 					max_node = it2->first;
 				}
 				else if(it2->second.size() == max){
-                    if(max_node == 2147483647){
-                        max =  it2->second.size();
-						max_node = it2->first;
-                    }
-
-					if(it2->first < map_int.find(max_node)->first){
+					if(it2->first < max_node){
 						max =  it2->second.size();
 						max_node = it2->first; 
 					}
@@ -359,7 +355,6 @@ int main(void)
 	map<string, set<int> > all_connected;
 	int error;
 	char buf[MAXBUFLEN];
-	string port1 = "31255", port2 = "32255";
 
 	read_file(strcon("./data2.txt"), graph, all_connected);
 
@@ -377,9 +372,9 @@ int main(void)
 
 	while(1){
 
-		cout << "The server B is up and running using UDP on port " << port2 << endl << endl;
+		cout << "The server B is up and running using UDP on port " << MAIN_SERVER_PORT << endl << endl;
 
-		if ((error = udp_listen_on(port1, buf)) != 0) {
+		if ((error = udp_listen_on(SERVER_B_PORT, buf)) != 0) {
 			return error;
 		}
 
@@ -388,16 +383,12 @@ int main(void)
 
 			usleep(1000000);
 
-			if ((error = udp_talk_on(port2, cstr)) != 0) {
+			if ((error = udp_talk_on(MAIN_SERVER_PORT, cstr)) != 0) {
 				return error;
 			}
 			cout << "The server B has sent a country list to Main Server" << endl << endl;
 			break;
 		}
-		else{
-			cout << "Does not match" << endl;
-		}
-
 	}
 
 	
@@ -410,7 +401,7 @@ int main(void)
 		int uid;
 
 		// listen to mainserver
-		if ((error = udp_listen_on(port1, buf)) != 0) {
+		if ((error = udp_listen_on(SERVER_B_PORT, buf)) != 0) {
 			return error;
 		}
 
@@ -458,7 +449,7 @@ int main(void)
         }
 
 		// talk to mainserver
-		if ((error = udp_talk_on(port2, cstr)) != 0) {
+		if ((error = udp_talk_on(MAIN_SERVER_PORT, cstr)) != 0) {
 			return error;
 		}
 

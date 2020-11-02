@@ -1,5 +1,5 @@
 /*
-** server.c -- a stream socket server demo
+** This is the main server
 */
 
 #include <stdio.h>
@@ -27,6 +27,14 @@
 #define MAXDATASIZE 100
 
 #define MAXBUFLEN 100
+
+#define CLIENT_PORT "33255"
+
+#define SERVER_A_PORT "30255"
+
+#define SERVER_B_PORT "31255"
+
+#define BACKEND_PORT "32255"
 
 using namespace std;
 
@@ -322,7 +330,7 @@ void print_forwarding_table(map<string, string> forward){
 int main(void)
 {
 	// Contact backend servers and get data related to countries
-	string port1 = "30255", port2 = "32255", port3 = "31255",  port4 = "33255", signal="RD";
+	string signal="RD";
 	char buf[MAXDATASIZE], s[INET6_ADDRSTRLEN];
 	int sockfd, new_fd, numbytes, error;
 	struct sockaddr_storage their_addr; 
@@ -332,39 +340,39 @@ int main(void)
 	cout << "The Main Server is up and running " << endl << endl; 
 
 	// Talker - serverA
-	if ((error = udp_talk_to(port1, signal)) != 0) {
+	if ((error = udp_talk_to(SERVER_A_PORT, signal)) != 0) {
 		return error;
 	}
 
 	// Listener - serverA
-	if ((error = udp_listen_on(port2, buf)) != 0) {
+	if ((error = udp_listen_on(BACKEND_PORT, buf)) != 0) {
 		return error;
 	}
 
-	cout << "The Main Server has received the country list from server A using UDP over port " << port2 << endl << endl; 
+	cout << "The Main Server has received the country list from server A using UDP over port " << BACKEND_PORT << endl << endl; 
 
-	deserialize(buf, forward, port1);
+	deserialize(buf, forward, SERVER_A_PORT);
 
 	// Talker - serverB
-	if ((error = udp_talk_to(port3, signal)) != 0) {
+	if ((error = udp_talk_to(SERVER_B_PORT, signal)) != 0) {
 		return error;
 	}
 
 	// Listener - serverB
-	if ((error = udp_listen_on(port2, buf)) != 0) {
+	if ((error = udp_listen_on(BACKEND_PORT, buf)) != 0) {
 		return error;
 	}
 
-	cout << "The Main Server has received the country list from server B using UDP over port " << port2 << endl << endl; 
+	cout << "The Main Server has received the country list from server B using UDP over port " << BACKEND_PORT << endl << endl; 
 
-	deserialize(buf, forward, port3);
+	deserialize(buf, forward, SERVER_B_PORT);
 
 
 	print_forwarding_table(forward);
 
 
 	// Get socket file descriptor for endpoint facing client
-	if ((error = get_socket_fd(&sockfd, port4)) != 0) {
+	if ((error = get_socket_fd(&sockfd, CLIENT_PORT)) != 0) {
 		return error;
 	}
 
@@ -403,7 +411,7 @@ int main(void)
 
 			if(forward.find(country) == forward.end()){
 				cout << country << "does not show up in server A&B " << endl;
-				cout << "The Main Server has sent '" << country << " : Not found' to client # using TCP over port " << port4 << endl << endl;
+				cout << "The Main Server has sent '" << country << " : Not found' to client # using TCP over port " << CLIENT_PORT << endl << endl;
 				const string temp = country + "does not show up in server A&B ";
            	 	strcpy(buf, temp.c_str());
 			}
@@ -411,9 +419,9 @@ int main(void)
 			else{
 				port = forward.find(country)->second;
 
-				cout << "The Main Server has received the request on User " << uid << " in " << country << " from client # using TCP over port " << port4 << endl;
+				cout << "The Main Server has received the request on User " << uid << " in " << country << " from client # using TCP over port " << CLIENT_PORT << endl;
 				
-				if(port == port1){
+				if(port == SERVER_A_PORT){
 					server = "A";
 				}
 				else{
@@ -430,7 +438,7 @@ int main(void)
 				cout << "The Main Server has sent request from User " << uid << " to server" << server << " using UDP over port " << port << endl;
 
 				// Listener
-				if ((error = udp_listen_on(port2, buf)) != 0) {
+				if ((error = udp_listen_on(BACKEND_PORT, buf)) != 0) {
 					return error;
 				}
 			}
@@ -443,7 +451,7 @@ int main(void)
 			if (send(new_fd, buf, sizeof buf , 0) == -1)
 				perror("send");
 
-			cout << "The Main Server has sent searching result to client using TCP over port " << port4 << endl;
+			cout << "The Main Server has sent searching result to client using TCP over port " << CLIENT_PORT << endl;
 
 			// **** End conversing with the client ****
 
