@@ -1,5 +1,5 @@
 /*
-** client.c -- a stream socket client demo
+** client 
 */
 
 #include <stdio.h>
@@ -19,17 +19,9 @@ using namespace std;
 
 #define MAXDATASIZE 1000 // max number of bytes we can get at once 
 
-// get sockaddr, IPv4 or IPv6:
-void *get_in_addr(struct sockaddr *sa)
-{
-	if (sa->sa_family == AF_INET) {
-		return &(((struct sockaddr_in*)sa)->sin_addr);
-	}
+#define MAIN_SERVER_PORT "33255"
 
-	return &(((struct sockaddr_in6*)sa)->sin6_addr);
-}
-
-int get_socket_fd(int *sockfd, char *port)
+int get_socket_fd(int *sockfd, char *port) // Reused code from Beej’s Tutorial
 {
 	int rv;
 	char s[INET6_ADDRSTRLEN];
@@ -57,7 +49,6 @@ int get_socket_fd(int *sockfd, char *port)
 			close(*sockfd);
 			continue;
 		}
-
 		break;
 	}
 
@@ -65,10 +56,6 @@ int get_socket_fd(int *sockfd, char *port)
 		fprintf(stderr, "client: failed to connect\n");
 		return 2;
 	}
-
-	inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr),
-			s, sizeof s);
-	//printf("client: connecting to %s\n", s);
 
 	freeaddrinfo(servinfo); // all done with this structure
 
@@ -97,17 +84,12 @@ int main(int argc, char *argv[])
 		cin >> userId;
 		cout << "Please enter the country name: ";
 		cin >> country;
-
         cout << endl;
 
-
-		// **** TCP connections is established ****
-		// **** Start conversing with the server ****
-
-		string message =  country + " " + userId;
+		string message = country + " " + userId;
 
 		// Get socket file descriptor for main-server
-		if ((error = get_socket_fd(&sockfd, strcon("33255"))) != 0) {
+		if ((error = get_socket_fd(&sockfd, strcon(MAIN_SERVER_PORT))) != 0) {
 			return error;
 		}
 
@@ -115,7 +97,7 @@ int main(int argc, char *argv[])
 		if (send(sockfd, strcon(message), strlen(strcon(message)), 0) == -1)
 			perror("send");
 
-		cout << "Client has sent User " << userId << " and " << country << " to Main Server using TCP" << endl << endl;
+		cout << "Client has sent User " << userId << " and Country " << country << " to Main Server using TCP" << endl << endl;
 
 		// Receive data 
 		if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
@@ -124,15 +106,23 @@ int main(int argc, char *argv[])
 		}
 		buf[numbytes] = '\0';
 
-		// **** End conversing with the server ****
+		// Print results
+		if (strcmp(buf, "-1") == 0){
+			cout << "User " << userId << " is already connected to all users in " << country << endl;
+		} 
+		else if (strcmp(buf, "-2") == 0){
+			cout << "User " << userId << " not found in " << country << endl;
+		}
+		else if (strcmp(buf, "-3") == 0){
+			cout << "Country " << country << " not found" << endl;
+		}
+		else{
+			cout << "Client has received results from Main Server: " << buf << " is possible friend of " << userId << " in " << country << endl << endl;
+		}
 
-		// *** country / userId not found
-
-		cout << "Client has received results from Main Server: " << buf << " is possible friend of " << userId << " in " << country << endl << endl;
-
-
-		//printf("client: received '%s'\n",buf);
 		close(sockfd);
+
+		cout << endl;
 
 	}
 

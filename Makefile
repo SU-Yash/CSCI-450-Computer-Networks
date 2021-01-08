@@ -1,4 +1,4 @@
-.PHONY: all serverA serverB mainserver tester
+.PHONY: all serverA serverB mainserver
 
 all:
 
@@ -6,7 +6,6 @@ all:
 	g++ -g serverB.cpp -o serverB
 	g++ -g servermain.cpp -o mainserver
 	g++ -g client.cpp -o client 
-	g++ -g ServerTester.cpp -o tester
 
 serverA:
 
@@ -19,7 +18,3 @@ serverB:
 mainserver:
 
 	./mainserver
-
-tester:
-
-	./tester

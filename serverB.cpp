@@ -27,23 +27,13 @@ using namespace std;
 
 #define MAIN_SERVER_PORT "32255"
 
-// get sockaddr, IPv4 or IPv6:
-void *get_in_addr(struct sockaddr *sa)
-{
-	if (sa->sa_family == AF_INET) {
-		return &(((struct sockaddr_in*)sa)->sin_addr);
-	}
-
-	return &(((struct sockaddr_in6*)sa)->sin6_addr);
-}
-
 char* strcon(string s){
 	char *cstr = new char[s.length() + 1];
 	strcpy(cstr, s.c_str());
 	return cstr;
 }
 
-int udp_listen_on(string port, char (&buf)[MAXBUFLEN]){
+int udp_listen_on(string port, char (&buf)[MAXBUFLEN]){ // Reused code from Beej’s Tutorial
 	int sockfd, numbytes, rv;
 	struct sockaddr_storage their_addr;
 	char s[INET6_ADDRSTRLEN];
@@ -94,22 +84,13 @@ int udp_listen_on(string port, char (&buf)[MAXBUFLEN]){
 
 	buf[numbytes] = '\0';
 
-	/*
-	printf("listener: got packet from %s\n",
-		inet_ntop(their_addr.ss_family,
-			get_in_addr((struct sockaddr *)&their_addr),
-			s, sizeof s));
-	printf("listener: packet is %d bytes long\n", numbytes);
-	printf("listener: packet contains \"%s\"\n", buf);
-	*/
-
 	close(sockfd);
 
 	return 0;
 
 }
 
-int udp_talk_on(string port, char* message){
+int udp_talk_on(string port, char* message){ // Reused code from Beej’s Tutorial
 
 	struct addrinfo hints, *servinfo, *p;
 	int sockfd, rv, numbytes;
@@ -147,7 +128,6 @@ int udp_talk_on(string port, char* message){
 		exit(1);
 	}
 
-	//printf("talker: sent %s bytes to \n", message);
 	close(sockfd);
 
 	return 0;
@@ -222,19 +202,14 @@ void read_file(char * file, map<string, map<int, set<int> > > & graph,
 			}
 			ajm.clear();
 			country = line_vec[0];
-			//cout<< "Country: " << country << endl ;
 		}
 		else{
 			string r = line_vec[0];
 			int pivot, node;
 			stringstream convert(r);
 			convert >> pivot;
-
-			//cout << "Pivot: " << pivot << endl;
-			
 			set<int> neighbours;
 			for(int i = 1; i < line_vec.size(); i++){
-				//cout << "Neighbours: " << line_vec[i] << endl;
 				r = line_vec[i];
 				stringstream convert(r);
 				convert >> node;
@@ -275,7 +250,6 @@ int execute_query(string c, int uid, map<string, map<int, set<int> > > & graph,
 	
 	if(all_connected.find(c)->second.find(uid) != all_connected.find(c)->second.end()){
         // early exit: uid is already connected to all other users in the country 
-        cout << "early exit: uid is already connected to all other users in the country " << endl;
 		return -1;
 	}
 
@@ -285,7 +259,6 @@ int execute_query(string c, int uid, map<string, map<int, set<int> > > & graph,
 
 	if(p == map_int.end()){
 		// early exit: uid not found
-        cout << "early exit: uid not found" << endl;
 		return -2;
 	}	
 			
@@ -339,12 +312,9 @@ int execute_query(string c, int uid, map<string, map<int, set<int> > > & graph,
 				}
 			}
 		}
-        cout << "uid not connected to any other user in the country, so return node with highest degree" << endl;
 	}
-
-	cout << "Max: " << max << " , Max Node: " << max_node << endl;
 	suggestion = max_node;
-    cout << "" << endl;
+    cout << endl;
 	return 0;
 }
 
@@ -372,14 +342,13 @@ int main(void)
 
 	while(1){
 
-		cout << "The server B is up and running using UDP on port " << MAIN_SERVER_PORT << endl << endl;
+		cout << "The server B is up and running using UDP on port " << SERVER_B_PORT << endl << endl;
 
 		if ((error = udp_listen_on(SERVER_B_PORT, buf)) != 0) {
 			return error;
 		}
 
 		if(strcmp(buf, "RD") == 0){
-			//cout << "Received request from mainserver for data" << endl; 
 
 			usleep(1000000);
 
@@ -394,9 +363,6 @@ int main(void)
 	
 	// Start listening and answering user queries
 	while(1){
-
-		//cout << "Serving Queries now: " << endl;
-
 		string country;
 		int uid;
 
@@ -409,43 +375,29 @@ int main(void)
 
 
 		// Resolve query
-
 		int suggestion = -1;
 		char *cstr;
 
 		error = execute_query(country, uid, graph, all_connected, suggestion);
 
 		if(error == -1){
-            stringstream ss;
-            ss << uid;
-            string str = ss.str();
-            const string temp = " " + str + " is already connected to all other users, no new recommendation";
-            cstr = new char[temp.length() + 1];
-            strcpy(cstr, temp.c_str());
-			cout << uid << " is already connected to all other users, no new recommendation" << endl; 
-			cout << "The server B has sent 'User " << uid << " connected to all other users, no new recommendation' to Main Server" << endl << endl;
+            cstr = strcon("-1");
+			cout << "User " << uid << " is already connected to all other users, no new recommendation" << endl; 
+			cout << "The server B has sent 'User " << uid << " is already connected to all users in " << country << "'" << " to Main Server" << endl;
         }
 		else if (error == -2){
-            stringstream ss;
-            ss << uid;
-            string str = ss.str();
-            const string temp = "User " + str + " not found";
-            cstr = new char[temp.length() + 1];
-            strcpy(cstr, temp.c_str());
+            cstr = strcon("-2");
 			cout << "User " << uid << " does not show up in " << country << endl;
-			cout << "The server B has sent 'User " << uid << " not found' to Main Server" << endl << endl;
+			cout << "The server B has sent 'User " << uid << " not found in " << country << "'" << " to Main Server" << endl;
 		}
         else{
             ostringstream oss;
             oss << suggestion;
-
             const string temp = oss.str();
-
-            cstr = new char[temp.length() + 1];
-            strcpy(cstr, temp.c_str());
+            cstr = strcon(temp);
 			cout << "The server B is searching possible friends for User " << uid << "..." << endl;
 			cout << "Here are the results: " << suggestion << endl;
-			cout << "The server B has sent the results to Main Server " << endl << endl; 
+			cout << "The server B has sent the results to Main Server " << endl; 
         }
 
 		// talk to mainserver
@@ -453,7 +405,7 @@ int main(void)
 			return error;
 		}
 
-		cout << endl << endl;
+		cout << endl;
 	}
 
 	return 0;
